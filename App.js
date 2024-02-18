@@ -1,25 +1,35 @@
-//App.js
+
 const express = require('express');
 const cors = require('cors');
+
 const multer = require('multer');
 const { S3Client, ListObjectsCommand, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+
+// Create an Express application
 const app = express();
 const port = 3000;
 
-const corsOptions = {
-    origin: 'http://my-cool-local-bucket.s3-website-us-east-1.amazonaws.com',
-    optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
+app.use(cors());
 
 // AWS S3 configuration
-const s3Client = new S3Client({ region: 'us-east-1' });
+const s3Client = new S3Client({ region: 'us-east-1' }); // Change the region as needed
 
 // Multer middleware configuration for handling file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Endpoint to list all objects in a bucket
+app.use(express.static('public'));
 
+// Endpoint to list all objects in a bucket
+app.get('/listObjects', async (req, res) => {
+    try {
+        const command = new ListObjectsCommand({ Bucket: 'my-cool-local-bucket' }); 
+        const data = await s3Client.send(command);
+        res.json(data.Contents.map(object => object.Key));
+    } catch (err) {
+        console.error("Error listing objects:", err);
+        res.status(500).send("Error listing objects");
+    }
+});
 
 // Endpoint to upload an object to a bucket
 app.post('/upload', upload.single('file'), async (req, res) => {
@@ -38,6 +48,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     }
 });
 
+// Endpoint to retrieve an object from a bucket
 app.get('/getObject/:key', async (req, res) => {
     const key = req.params.key;
     try {
@@ -49,20 +60,6 @@ app.get('/getObject/:key', async (req, res) => {
         res.status(500).send("Error retrieving object");
     }
 });
-
-app.get('/listObjects', async (req, res) => {
-    try {
-        const command = new ListObjectsCommand({ Bucket: 'my-cool-local-bucket' }); 
-        const data = await s3Client.send(command);
-        res.json(data.Contents.map(object => object.Key));
-    } catch (err) {
-        console.error("Error listing objects:", err);
-        res.status(500).send("Error listing objects");
-    }
-});
-
-
-
 
 // Start the Express server
 app.listen(port, () => {
